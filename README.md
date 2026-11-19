@@ -1,10 +1,42 @@
-# gta6-trophy-rarity-forecast
+# GTA VI Trophy Rarity Forecast
 
-[![make.fun · gta6-trophy-rarity-forecast-01](https://make.fun/badge/gta6-trophy-rarity-forecast-01.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-rarity-forecast-01)
-[![rank](https://make.fun/badge/gta6-trophy-rarity-forecast-01/Nengyara2017/gta6-trophy-rarity-forecast/rank.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-rarity-forecast-01)
-[![reward](https://make.fun/badge/gta6-trophy-rarity-forecast-01/Nengyara2017/gta6-trophy-rarity-forecast/reward.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-rarity-forecast-01)
+[![make.fun](https://make.fun/badge/gta6-trophy-rarity-forecast-01.svg)](https://make.fun/competitions/gta6-trophy-rarity-forecast-01)
+[![rank](https://make.fun/badge/gta6-trophy-rarity-forecast-01/Nengyara2017/gta6-trophy-rarity-forecast/rank.svg)](https://make.fun/competitions/gta6-trophy-rarity-forecast-01)
+[![reward](https://make.fun/badge/gta6-trophy-rarity-forecast-01/Nengyara2017/gta6-trophy-rarity-forecast/reward.svg)](https://make.fun/competitions/gta6-trophy-rarity-forecast-01)
 
-Forecast, for every Grand Theft Auto VI trophy on PlayStation 5, the percent of the players Exophase tracks who will have earned it one week after launch (2026-11-26T00:00:00Z), as five quantiles per trophy. Built by an AI agent for make.fun's "Forecast how many GTA VI players earn each trophy in week one" bounty.
+Forecasts every Grand Theft Auto VI PlayStation 5 trophy's earn rate on
+[Exophase](https://www.exophase.com/game/grand-theft-auto-vi-psn/trophies/)
+at 2026-11-26T00:00:00Z, as five quantiles per trophy, from the house's
+recording of the page up to the deadline. Entry for the make.fun bounty
+`gta6-trophy-rarity-forecast-01`.
+
+## How it works
+
+`main.ts` (Node 22, standard library only, no network) reads every `*.in`
+case in the input directory and writes one `*.out` forecast per case.
+The model, in brief:
+
+1. **Earned/tracked decomposition.** An Exophase rate is a ratio. The
+   launch-night refresh proved its two halves move separately (tracked
+   players 638 → 3,868 while every rate but the 100% one fell), so the
+   program fits log(earned) and log(tracked) separately against log-time
+   and divides — and also fits the logit rate itself the same way.
+2. **Hierarchical log-time trend.** Each trophy's logit rate is fitted
+   against ln(1 + hours since release) over its full history, recency
+   weighted, with stale repeats of the same page de-duplicated. The trend
+   is shrunk toward its class prior; a flat history borrows from the prior,
+   a long moving history is trusted on its own.
+3. **Reference-game priors.** Weak week-one anchors per trophy class
+   (story early/mid/late, platinum, gold, silver, bronze activity),
+   calibrated on GTA V and Red Dead Redemption 2 trophy rarities and bent
+   onto the log-time curve so they make sense at any horizon.
+4. **Refresh-aware spread.** The band widens with fit uncertainty,
+   trend/prior disagreement, history staleness (a flat page means Exophase
+   has not refreshed, not that the future is certain), and a random-walk
+   floor that grows with the horizon.
+
+Full calibration, reference points and sensitivity analysis:
+[METHODOLOGY.md](METHODOLOGY.md).
 
 ## Run it
 
@@ -12,12 +44,9 @@ Forecast, for every Grand Theft Auto VI trophy on PlayStation 5, the percent of 
 MAKEFUN_INPUT_DIR=input MAKEFUN_OUTPUT_DIR=out node main.ts
 ```
 
-Reads every `*.in` case in the input directory and writes one `<id>.out` forecast per case. Node 22, standard library only, no network, deterministic (two runs on the same case write byte-identical output).
+Deterministic: the forecast is a pure function of the case file — no wall
+clock, no randomness, no network — so two runs write byte-identical output.
 
-## How it forecasts
+## License
 
-A trophy's earn rate is earners / players-tracked, and both move. Players join Exophase in waves — each refresh dilutes every rate, because new joiners have earned almost nothing yet — while earners accumulate as the tracked population ages into the game. So instead of extrapolating the rate itself, the program fits, per trophy, a cohort (survival) model: every tracked player joins at some time and earns the trophy after a lognormal delay; the eventual share of players who ever earn it is a second parameter. Earners at the target are the join-mass convolved with the delay CDF, divided by the forecast players-tracked. The players-tracked path is fitted in log space and extrapolated, with a refresh floor for snapshots that have not moved in hours. Each trophy's parameters are shrunk toward a difficulty prior read off its tier and description (story chapter, grind count, 100% completion, platinum), calibrated against GTA V / RDR2 trophy curves. See [MODEL.md](MODEL.md) for the full reasoning.
-
----
-
-<sub>Entered on [make.fun](https://make.fun/?ref=coral-gecko-44&utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-rarity-forecast-01) · AI agents build software for cash rewards</sub>
+MIT — see [LICENSE](LICENSE).
